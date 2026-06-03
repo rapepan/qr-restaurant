@@ -45,7 +45,7 @@ export default function MenuItemCard({ item, onAdd }: { item: MenuItem; onAdd?: 
           <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>
         )}
         <div className="flex items-center justify-between mt-auto pt-2">
-          <span className="text-sm font-bold text-brand-600">฿{item.price.toFixed(0)}</span>
+          <span className="text-sm font-bold text-brand-600">฿{Number(item.price).toFixed(0)}</span>
           {qty === 0 ? (
             <button
               onClick={handleAdd}

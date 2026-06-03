@@ -63,7 +63,7 @@ export default function CartSheet({ open, onClose, onConfirm }: Props) {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800 truncate">{item.name}</p>
-                  <p className="text-xs text-brand-600 font-semibold">฿{(item.price * item.quantity).toFixed(0)}</p>
+                  <p className="text-xs text-brand-600 font-semibold">฿{(Number(item.price) * item.quantity).toFixed(0)}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button

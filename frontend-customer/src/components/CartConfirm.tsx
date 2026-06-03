@@ -82,7 +82,7 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-sm text-gray-500">x{item.quantity}</p>
-                  <p className="text-sm font-semibold text-gray-800">฿{(item.price * item.quantity).toFixed(0)}</p>
+                  <p className="text-sm font-semibold text-gray-800">฿{(Number(item.price) * item.quantity).toFixed(0)}</p>
                 </div>
               </div>
             ))}
