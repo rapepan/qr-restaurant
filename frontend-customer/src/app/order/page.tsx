@@ -40,7 +40,7 @@ export default function OrderPage() {
 
   const catRefs = useRef<Record<number, HTMLElement | null>>({});
 
-  const showToast = (message: string, type: ToastState['type'] = 'success') => {
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
