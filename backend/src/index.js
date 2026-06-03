@@ -16,6 +16,7 @@ const server = http.createServer(app);
 const io     = setupSocket(server);
 
 app.set('io', io);
+app.set('trust proxy', 1);
 
 // ─── Security ────────────────────────────────────────────────
 app.use(helmet());
