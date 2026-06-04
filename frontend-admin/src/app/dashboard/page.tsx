@@ -13,7 +13,7 @@ export default function DashboardPage() {
   useEffect(() => {
     Promise.all([
       getStats({ start_date: today, end_date: today }),
-      getOrders({ status: 'pending,confirmed,preparing,ready' }),
+      getOrders({ status: 'pending,confirmed' }),
       getTables(),
     ]).then(([s, o, t]) => {
       setStats(s);
@@ -24,7 +24,7 @@ export default function DashboardPage() {
 
   const todayStats = stats?.revenue?.[0];
   const occupiedCount = tables.filter(t => t.status === 'occupied').length;
-  const activeOrders  = orders.filter(o => ['pending','confirmed','preparing'].includes(o.status)).length;
+  const activeOrders  = orders.filter(o => ['pending','confirmed'].includes(o.status)).length;
 
   const CARDS = [
     { label: 'รายได้วันนี้',     value: todayStats ? `฿${parseFloat(todayStats.total_revenue||0).toFixed(0)}` : '฿0', icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-900/30' },
@@ -34,13 +34,14 @@ export default function DashboardPage() {
   ];
 
   const STATUS_LABEL: Record<string, string> = {
-    pending: 'รอยืนยัน', confirmed: 'ยืนยันแล้ว', preparing: 'กำลังปรุง',
-    ready: 'พร้อมเสิร์ฟ', served: 'เสิร์ฟแล้ว', closed: 'ปิดแล้ว',
+    pending: 'รอรับออเดอร์',
+    confirmed: 'รับออเดอร์',
+    served: 'เสิร์ฟแล้ว',
   };
   const STATUS_COLOR: Record<string, string> = {
-    pending: 'bg-yellow-900/40 text-yellow-400', confirmed: 'bg-blue-900/40 text-blue-400',
-    preparing: 'bg-orange-900/40 text-orange-400', ready: 'bg-green-900/40 text-green-400',
-    served: 'bg-gray-700 text-gray-300', closed: 'bg-gray-800 text-gray-500',
+    pending: 'bg-yellow-900/40 text-yellow-400',
+    confirmed: 'bg-blue-900/40 text-blue-400',
+    served: 'bg-gray-700 text-gray-300',
   };
 
   return (

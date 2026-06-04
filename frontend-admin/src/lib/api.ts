@@ -77,6 +77,7 @@ export const getTables = () => api.get('/admin/tables').then(r => r.data.data);
 export const createTable = (data: any) => api.post('/admin/tables', data).then(r => r.data.data);
 export const regenerateToken = (id: number) =>
   api.post(`/admin/tables/${id}/regenerate-token`).then(r => r.data.data);
+export const deleteTable = (id: number) => api.delete(`/admin/tables/${id}`).then(r => r.data);
 
 // ─── Staff Calls ──────────────────────────────────
 export const getCalls = () => api.get('/admin/calls').then(r => r.data.data);

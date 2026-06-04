@@ -2,19 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Loader2, CheckCircle2, ChefHat, Utensils } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 import { getOrder } from '@/lib/api';
 import { io } from 'socket.io-client';
 
 const STATUS_STEPS = [
-  { key: 'pending',    label: 'รับออเดอร์แล้ว',    icon: CheckCircle2, color: 'text-blue-500'   },
-  { key: 'confirmed',  label: 'ยืนยันออเดอร์',       icon: CheckCircle2, color: 'text-blue-500'   },
-  { key: 'preparing',  label: 'กำลังปรุงอาหาร',      icon: ChefHat,      color: 'text-amber-500'  },
-  { key: 'ready',      label: 'อาหารพร้อมแล้ว',      icon: Utensils,     color: 'text-green-500'  },
-  { key: 'served',     label: 'เสิร์ฟแล้ว',           icon: CheckCircle2, color: 'text-green-600'  },
+  { key: 'confirmed', label: 'รับออเดอร์แล้ว', color: 'text-blue-500' },
+  { key: 'served', label: 'เสิร์ฟแล้ว', color: 'text-green-600' },
 ];
 
-const statusIndex = (s: string) => STATUS_STEPS.findIndex((st) => st.key === s);
+const statusIndex = (status: string) => {
+  if (status === 'served') return 1;
+  return 0;
+};
 
 export default function OrderStatusPage() {
   const { order_number } = useParams() as { order_number: string };
@@ -35,26 +35,31 @@ export default function OrderStatusPage() {
         setOrder((prev: any) => ({ ...prev, status: data.status }));
       }
     });
-    return () => { socket.disconnect(); };
+    return () => {
+      socket.disconnect();
+    };
   }, [order_number]);
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
+      </div>
+    );
+  }
 
-  if (!order) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <p className="text-gray-500">ไม่พบออเดอร์</p>
-    </div>
-  );
+  if (!order) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-500">ไม่พบออเดอร์</p>
+      </div>
+    );
+  }
 
   const currentIdx = statusIndex(order.status);
 
   return (
     <div className="min-h-screen bg-gray-50 max-w-lg mx-auto">
-      {/* Header */}
       <div className="bg-white px-5 pt-10 pb-6 border-b border-gray-100">
         <div className="flex items-center justify-between mb-1">
           <h1 className="font-bold text-xl text-gray-900">สถานะออเดอร์</h1>
@@ -64,18 +69,14 @@ export default function OrderStatusPage() {
       </div>
 
       <div className="px-5 py-6 space-y-6">
-        {/* Status steps */}
         <div className="bg-white rounded-2xl p-5 space-y-4 shadow-sm">
           {STATUS_STEPS.map((step, idx) => {
-            const done    = idx <= currentIdx;
-            const active  = idx === currentIdx;
-            const Icon    = step.icon;
+            const done = idx <= currentIdx;
+            const active = idx === currentIdx;
             return (
               <div key={step.key} className="flex items-center gap-4">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
-                  done ? 'bg-brand-100' : 'bg-gray-100'
-                }`}>
-                  <Icon className={`w-4 h-4 ${done ? step.color : 'text-gray-300'}`} />
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${done ? 'bg-brand-100' : 'bg-gray-100'}`}>
+                  <CheckCircle2 className={`w-4 h-4 ${done ? step.color : 'text-gray-300'}`} />
                 </div>
                 <div className="flex-1">
                   <p className={`text-sm font-medium ${done ? 'text-gray-900' : 'text-gray-300'}`}>{step.label}</p>
@@ -89,35 +90,38 @@ export default function OrderStatusPage() {
           })}
         </div>
 
-        {/* Order items */}
         <div className="bg-white rounded-2xl p-5 shadow-sm">
           <h3 className="font-semibold text-gray-800 mb-3 text-sm">รายการที่สั่ง</h3>
           <div className="space-y-2.5">
             {order.items?.map((item: any) => (
-              <div key={item.id} className="flex justify-between items-center text-sm">
-                <div>
+              <div key={item.id} className="flex justify-between items-start gap-3 text-sm">
+                <div className="min-w-0">
                   <span className="text-gray-800">{item.name}</span>
-                  {item.note && <p className="text-xs text-gray-400 italic">"{item.note}"</p>}
+                  {item.note && <p className="text-xs text-gray-400 italic">หมายเหตุรายการ: {item.note}</p>}
                 </div>
-                <div className="text-right">
+                <div className="text-right flex-shrink-0">
                   <p className="text-gray-500 text-xs">x{item.quantity}</p>
                   <p className="font-semibold text-gray-900">฿{item.total_price}</p>
                 </div>
               </div>
             ))}
           </div>
+          {order.note && (
+            <p className="mt-4 text-xs text-amber-700 bg-amber-50 px-3 py-2 rounded-xl">
+              หมายเหตุออเดอร์: {order.note}
+            </p>
+          )}
           <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between font-bold text-gray-900">
             <span>รวม</span>
             <span className="text-brand-600">฿{parseFloat(order.total).toFixed(2)}</span>
           </div>
         </div>
 
-        {/* Back to menu */}
         <a
           href={`/order?table=${table}&token=${searchParams.get('token') ?? ''}`}
           className="block text-center py-3 text-sm text-brand-600 font-medium"
         >
-          ← กลับหน้าเมนู
+          กลับหน้าเมนู
         </a>
       </div>
     </div>

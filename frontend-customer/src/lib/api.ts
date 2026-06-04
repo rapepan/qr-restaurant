@@ -14,6 +14,8 @@ export const submitOrder = (payload: {
   table_id: number;
   items: { menu_item_id: number; quantity: number; note?: string }[];
   note?: string;
+  payment_method?: 'cash' | 'qr_payment' | 'credit_card';
+  payment_status: 'paid';
 }) => api.post('/order', payload).then(r => r.data.data);
 
 export const getOrder = (order_number: string) =>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, CheckCircle2 } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { submitOrder } from '@/lib/api';
 
@@ -16,21 +16,23 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
   const { items, tableId, getTotal, clearCart } = useCartStore();
   const total = getTotal();
   const [note, setNote] = useState('');
+  const [paid, setPaid] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const TAX = total * 0.07;
 
   if (!open) return null;
 
   const handleSubmit = async () => {
-    if (!tableId) return;
+    if (!tableId || !paid) return;
+
     setLoading(true);
     setError('');
     try {
       const payload = {
         table_id: tableId,
         note: note.trim() || undefined,
+        payment_method: 'qr_payment' as const,
+        payment_status: 'paid' as const,
         items: items.map((i) => ({
           menu_item_id: i.id,
           quantity: i.quantity,
@@ -62,7 +64,6 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {/* Table info */}
           <div className="bg-brand-50 rounded-2xl p-3 flex items-center gap-3">
             <span className="text-2xl">🪑</span>
             <div>
@@ -71,14 +72,13 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
             </div>
           </div>
 
-          {/* Items list */}
           <div className="space-y-2">
             <h3 className="text-sm font-semibold text-gray-700">รายการอาหาร</h3>
             {items.map((item) => (
-              <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
-                <div>
+              <div key={item.id} className="flex justify-between items-start gap-3 py-2 border-b border-gray-50 last:border-0">
+                <div className="min-w-0">
                   <p className="text-sm text-gray-800">{item.name}</p>
-                  {item.note && <p className="text-xs text-gray-400 italic">"{item.note}"</p>}
+                  {item.note && <p className="text-xs text-gray-400 italic">หมายเหตุรายการ: {item.note}</p>}
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-sm text-gray-500">x{item.quantity}</p>
@@ -88,30 +88,40 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
             ))}
           </div>
 
-          {/* Note */}
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1.5 block">หมายเหตุ (ถ้ามี)</label>
+            <label className="text-sm font-medium text-gray-700 mb-1.5 block">หมายเหตุออเดอร์ (ถ้ามี)</label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="เช่น ไม่ใส่ผัก, ไม่เผ็ด..."
-              rows={2}
+              placeholder="เช่น ไม่ใส่ผัก, ไม่เผ็ด, แยกน้ำซุป..."
+              rows={3}
               className="w-full px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
             />
           </div>
 
-          {/* Price summary */}
-          <div className="bg-gray-50 rounded-2xl p-4 space-y-2 text-sm">
-            <div className="flex justify-between text-gray-500">
-              <span>ยอดรวม</span><span>฿{total.toFixed(2)}</span>
+          <div className="bg-gray-50 rounded-2xl p-4 flex justify-between font-bold text-base text-gray-900">
+            <span>รวมทั้งหมด</span>
+            <span className="text-brand-600">฿{total.toFixed(2)}</span>
+          </div>
+
+          <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">ชำระเงินก่อนส่งออเดอร์</p>
+                <p className="text-xs text-gray-500 mt-0.5">หลังยืนยันชำระเงิน ออเดอร์จะถูกส่งเข้าครัวทันที</p>
+              </div>
+              <p className="text-sm font-bold text-brand-700">฿{total.toFixed(2)}</p>
             </div>
-            <div className="flex justify-between text-gray-500">
-              <span>VAT 7%</span><span>฿{TAX.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-base text-gray-900 pt-2 border-t border-gray-200">
-              <span>รวมทั้งหมด</span>
-              <span className="text-brand-600">฿{(total + TAX).toFixed(2)}</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setPaid(true)}
+              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-colors ${
+                paid ? 'bg-green-600 text-white' : 'bg-brand-600 text-white hover:bg-brand-700'
+              }`}
+            >
+              {paid && <CheckCircle2 className="w-4 h-4" />}
+              {paid ? 'ยืนยันชำระเงินแล้ว' : 'กดยืนยันว่าชำระเงินแล้ว'}
+            </button>
           </div>
 
           {error && (
@@ -124,10 +134,10 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
         <div className="px-5 pb-8 pt-3 safe-bottom">
           <button
             onClick={handleSubmit}
-            disabled={loading}
-            className="w-full bg-brand-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-70 active:scale-[0.98] transition-transform shadow-lg shadow-brand-600/30"
+            disabled={loading || !paid}
+            className="w-full bg-brand-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-brand-600/30"
           >
-            {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังส่งออเดอร์...</> : '🛎️ สั่งอาหารเลย!'}
+            {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังส่งออเดอร์...</> : 'ส่งออเดอร์เข้าครัว'}
           </button>
         </div>
       </div>
