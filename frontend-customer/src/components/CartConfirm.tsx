@@ -87,7 +87,7 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
                 <textarea
                   value={item.note || ''}
                   onChange={(e) => updateNote(item.id, e.target.value)}
-                  placeholder="หมายเหตุสำหรับเมนูนี้ เช่น ไม่เผ็ด, ไม่ใส่ผัก..."
+                  placeholder="หมายเหตุสำหรับเมนูนี้ เช่น ไม่เผ็ด, ไม่ใส่ผัก ฯลฯ"
                   rows={2}
                   className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
                 />
