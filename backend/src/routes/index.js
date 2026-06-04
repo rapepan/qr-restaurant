@@ -5,6 +5,7 @@ const { upload } = require('../utils/cloudinary');
 const authCtrl      = require('../controllers/authController');
 const menuCtrl      = require('../controllers/menuController');
 const orderCtrl     = require('../controllers/orderController');
+const paymentCtrl   = require('../controllers/paymentController');
 const tableCtrl     = require('../controllers/tableController');
 const staffCallCtrl = require('../controllers/staffCallController');
 
@@ -13,6 +14,7 @@ router.get('/menu',                    menuCtrl.getMenu);
 router.get('/table/verify',            tableCtrl.verifyTable);
 router.post('/order',                  orderCtrl.createOrder);
 router.get('/order/:order_number',     orderCtrl.getOrderByNumber);
+router.post('/order/:order_number/slip', upload.single('slip'), paymentCtrl.submitSlip);
 router.post('/table/call',             staffCallCtrl.callStaff);
 
 // ─── Admin Auth ───────────────────────────────────────────────

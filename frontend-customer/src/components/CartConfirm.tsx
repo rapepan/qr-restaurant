@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, Loader2, Upload, CheckCircle2 } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
-import { submitOrder } from '@/lib/api';
+import { submitOrder, submitPaymentSlip } from '@/lib/api';
 
 interface Props {
   open: boolean;
@@ -15,110 +15,151 @@ interface Props {
 export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: Props) {
   const { items, tableId, getTotal, updateNote, clearCart } = useCartStore();
   const total = getTotal();
-  const [paid, setPaid] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState<any>(null);
+  const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState('');
 
   if (!open) return null;
 
-  const handleSubmit = async () => {
-    if (!tableId || !paid) return;
+  const resetAndClose = () => {
+    if (creating || verifying) return;
+    setPendingOrder(null);
+    setSlipFile(null);
+    setError('');
+    onClose();
+  };
 
-    setLoading(true);
+  const handleCreateOrder = async () => {
+    if (!tableId) return;
+
+    setCreating(true);
     setError('');
     try {
-      const payload = {
+      const order = await submitOrder({
         table_id: tableId,
-        payment_method: 'qr_payment' as const,
-        payment_status: 'paid' as const,
         items: items.map((i) => ({
           menu_item_id: i.id,
           quantity: i.quantity,
           note: i.note?.trim() || undefined,
         })),
-      };
-      const order = await submitOrder(payload);
-      clearCart();
-      onSuccess(order.order_number);
+      });
+      setPendingOrder(order);
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+      setError(err?.response?.data?.message || 'สร้างออเดอร์ไม่สำเร็จ กรุณาลองใหม่');
     } finally {
-      setLoading(false);
+      setCreating(false);
+    }
+  };
+
+  const handleVerifySlip = async () => {
+    if (!pendingOrder?.order_number || !slipFile) return;
+
+    setVerifying(true);
+    setError('');
+    try {
+      const paidOrder = await submitPaymentSlip(pendingOrder.order_number, slipFile);
+      clearCart();
+      onSuccess(paidOrder.order_number);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'ตรวจสอบสลิปไม่ผ่าน กรุณาตรวจสอบยอดเงินแล้วลองใหม่');
+    } finally {
+      setVerifying(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={!loading ? onClose : undefined} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={resetAndClose} />
       <div className="relative bg-white rounded-t-3xl max-h-[90vh] flex flex-col shadow-2xl">
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
 
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h2 className="font-bold text-gray-900 text-lg">ยืนยันการสั่งอาหาร</h2>
-          <button onClick={onClose} disabled={loading} className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50">
+          <h2 className="font-bold text-gray-900 text-lg">
+            {pendingOrder ? 'ชำระเงินและอัปโหลดสลิป' : 'ยืนยันการสั่งอาหาร'}
+          </h2>
+          <button onClick={resetAndClose} disabled={creating || verifying} className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           <div className="bg-brand-50 rounded-2xl p-3 flex items-center gap-3">
-            <span className="text-2xl">โต๊ะ</span>
             <div>
               <p className="text-xs text-brand-600 font-medium">โต๊ะของคุณ</p>
               <p className="font-bold text-gray-900">โต๊ะ {tableNumber}</p>
             </div>
           </div>
 
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-gray-700">รายการอาหาร</h3>
-            {items.map((item) => (
-              <div key={item.id} className="py-3 border-b border-gray-100 last:border-0 space-y-2">
-                <div className="flex justify-between items-start gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-800">{item.name}</p>
-                    <p className="text-xs text-gray-400">x{item.quantity}</p>
+          {!pendingOrder ? (
+            <>
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-gray-700">รายการอาหาร</h3>
+                {items.map((item) => (
+                  <div key={item.id} className="py-3 border-b border-gray-100 last:border-0 space-y-2">
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800">{item.name}</p>
+                        <p className="text-xs text-gray-400">x{item.quantity}</p>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-800 flex-shrink-0">
+                        ฿{(Number(item.price) * item.quantity).toFixed(0)}
+                      </p>
+                    </div>
+                    <textarea
+                      value={item.note || ''}
+                      onChange={(e) => updateNote(item.id, e.target.value)}
+                      placeholder="หมายเหตุสำหรับเมนูนี้ เช่น ไม่เผ็ด, ไม่ใส่ผัก..."
+                      rows={2}
+                      className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
+                    />
                   </div>
-                  <p className="text-sm font-semibold text-gray-800 flex-shrink-0">
-                    ฿{(Number(item.price) * item.quantity).toFixed(0)}
-                  </p>
-                </div>
-                <textarea
-                  value={item.note || ''}
-                  onChange={(e) => updateNote(item.id, e.target.value)}
-                  placeholder="หมายเหตุสำหรับเมนูนี้ เช่น ไม่เผ็ด, ไม่ใส่ผัก ฯลฯ"
-                  rows={2}
-                  className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
+                ))}
+              </div>
+
+              <div className="bg-gray-50 rounded-2xl p-4 flex justify-between font-bold text-base text-gray-900">
+                <span>รวมทั้งหมด</span>
+                <span className="text-brand-600">฿{total.toFixed(2)}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4 text-center space-y-3">
+                <p className="text-sm font-semibold text-gray-900">สแกนจ่าย PromptPay</p>
+                {pendingOrder.payment?.qr_data_url && (
+                  <div className="bg-white p-3 rounded-xl inline-block">
+                    <img src={pendingOrder.payment.qr_data_url} alt="PromptPay QR" className="w-52 h-52" />
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 font-mono">{pendingOrder.order_number}</p>
+                <p className="text-xl font-bold text-brand-700">฿{Number(pendingOrder.total).toFixed(2)}</p>
+              </div>
+
+              <label className="block rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 p-4 text-center cursor-pointer">
+                <Upload className="w-5 h-5 text-brand-600 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-gray-800">
+                  {slipFile ? slipFile.name : 'อัปโหลดสลิปโอนเงิน'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">รองรับ JPG, PNG, WEBP</p>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => setSlipFile(e.target.files?.[0] || null)}
                 />
-              </div>
-            ))}
-          </div>
+              </label>
 
-          <div className="bg-gray-50 rounded-2xl p-4 flex justify-between font-bold text-base text-gray-900">
-            <span>รวมทั้งหมด</span>
-            <span className="text-brand-600">฿{total.toFixed(2)}</span>
-          </div>
-
-          <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-gray-900">ชำระเงินก่อนส่งออเดอร์</p>
-                <p className="text-xs text-gray-500 mt-0.5">หลังยืนยันชำระเงิน ออเดอร์จะถูกส่งเข้าครัวทันที</p>
+              <div className="rounded-2xl bg-green-50 border border-green-100 px-4 py-3 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-green-700">
+                  ออเดอร์จะเข้าครัวอัตโนมัติเมื่อระบบตรวจสลิปแล้วว่ายอดตรงและไม่ใช่สลิปซ้ำ
+                </p>
               </div>
-              <p className="text-sm font-bold text-brand-700">฿{total.toFixed(2)}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setPaid(true)}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-colors ${
-                paid ? 'bg-green-600 text-white' : 'bg-brand-600 text-white hover:bg-brand-700'
-              }`}
-            >
-              {paid && <CheckCircle2 className="w-4 h-4" />}
-              {paid ? 'ยืนยันชำระเงินแล้ว' : 'กดยืนยันว่าชำระเงินแล้ว'}
-            </button>
-          </div>
+            </>
+          )}
 
           {error && (
             <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl border border-red-100">
@@ -128,13 +169,23 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
         </div>
 
         <div className="px-5 pb-8 pt-3 safe-bottom">
-          <button
-            onClick={handleSubmit}
-            disabled={loading || !paid}
-            className="w-full bg-brand-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-brand-600/30"
-          >
-            {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังส่งออเดอร์...</> : 'ส่งออเดอร์เข้าครัว'}
-          </button>
+          {!pendingOrder ? (
+            <button
+              onClick={handleCreateOrder}
+              disabled={creating}
+              className="w-full bg-brand-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-brand-600/30"
+            >
+              {creating ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังสร้าง QR...</> : 'สร้าง QR ชำระเงิน'}
+            </button>
+          ) : (
+            <button
+              onClick={handleVerifySlip}
+              disabled={verifying || !slipFile}
+              className="w-full bg-brand-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-brand-600/30"
+            >
+              {verifying ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังตรวจสลิป...</> : 'ส่งสลิปเพื่อตรวจสอบ'}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -121,6 +121,25 @@ CREATE TABLE order_items (
 ) ENGINE=InnoDB;
 
 -- ============================================
+-- PAYMENT SLIPS
+-- ============================================
+CREATE TABLE payment_slips (
+  id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_id            INT UNSIGNED NOT NULL,
+  slip_url            VARCHAR(500) NOT NULL,
+  slip_public_id      VARCHAR(200) NULL,
+  provider            VARCHAR(50) NOT NULL DEFAULT 'easyslip',
+  verification_status ENUM('pending','verified','rejected') NOT NULL DEFAULT 'pending',
+  trans_ref           VARCHAR(100) NULL,
+  amount              DECIMAL(10,2) NULL,
+  raw_response        JSON NULL,
+  error_message       VARCHAR(255) NULL,
+  created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_payment_slips_trans_ref (trans_ref)
+) ENGINE=InnoDB;
+
+-- ============================================
 -- CALL STAFF LOG (เรียกพนักงาน)
 -- ============================================
 CREATE TABLE staff_calls (
@@ -154,6 +173,7 @@ CREATE INDEX idx_menu_items_category   ON menu_items(category_id, is_available, 
 CREATE INDEX idx_orders_table_status   ON orders(table_id, status);
 CREATE INDEX idx_orders_created        ON orders(created_at);
 CREATE INDEX idx_order_items_order     ON order_items(order_id, status);
+CREATE INDEX idx_payment_slips_order   ON payment_slips(order_id, verification_status);
 CREATE INDEX idx_staff_calls_table     ON staff_calls(table_id, status);
 CREATE INDEX idx_refresh_tokens_user   ON refresh_tokens(user_id);
 

@@ -1,4 +1,5 @@
 const { pool } = require('../utils/db');
+const { buildPromptPayQr } = require('../utils/promptpay');
 
 const generateOrderNumber = () => {
   const now = new Date();
@@ -7,22 +8,22 @@ const generateOrderNumber = () => {
   return `ORD-${date}-${rand}`;
 };
 
-// POST /api/order - ลูกค้าสั่งอาหารหลังชำระเงินแล้วเท่านั้น
+// POST /api/order - สร้างออเดอร์รอชำระเงิน ยังไม่ส่งเข้าครัวจนกว่าสลิปผ่าน
 const createOrder = async (req, res, next) => {
   const conn = await pool.getConnection();
   try {
+    const promptPayId = process.env.PAYMENT_PROMPTPAY_ID;
+    if (!promptPayId) {
+      return res.status(500).json({ success: false, message: 'ยังไม่ได้ตั้งค่า PAYMENT_PROMPTPAY_ID' });
+    }
+
     await conn.beginTransaction();
 
-    const { table_id, items, note, payment_method, payment_status } = req.body;
+    const { table_id, items, note } = req.body;
 
     if (!items?.length) {
       await conn.rollback();
       return res.status(400).json({ success: false, message: 'กรุณาเลือกเมนูอย่างน้อย 1 รายการ' });
-    }
-
-    if (payment_status !== 'paid') {
-      await conn.rollback();
-      return res.status(400).json({ success: false, message: 'กรุณาชำระเงินก่อนส่งออเดอร์' });
     }
 
     const [tableRows] = await conn.query(
@@ -63,9 +64,9 @@ const createOrder = async (req, res, next) => {
     const order_number = generateOrderNumber();
 
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (order_number, table_id, note, subtotal, tax, total, payment_method, payment_status, paid_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'paid', NOW())`,
-      [order_number, table_id, note || null, subtotal, tax, total, payment_method || 'qr_payment']
+      `INSERT INTO orders (order_number, table_id, note, subtotal, tax, total, payment_method, payment_status)
+       VALUES (?, ?, ?, ?, ?, ?, 'qr_payment', 'unpaid')`,
+      [order_number, table_id, note || null, subtotal, tax, total]
     );
 
     const orderId = orderResult.insertId;
@@ -78,7 +79,6 @@ const createOrder = async (req, res, next) => {
       );
     }
 
-    await conn.query("UPDATE restaurant_tables SET status = 'occupied' WHERE id = ?", [table_id]);
     await conn.commit();
 
     const [fullOrder] = await conn.query(
@@ -91,10 +91,13 @@ const createOrder = async (req, res, next) => {
     );
 
     const result = { ...fullOrder[0], items: fullItems };
-    const io = req.app.get('io');
-    io?.to('admin').emit('new_order', result);
+    const payment = await buildPromptPayQr({ promptPayId, amount: total });
 
-    res.status(201).json({ success: true, data: result, message: 'สั่งอาหารสำเร็จ' });
+    res.status(201).json({
+      success: true,
+      data: { ...result, payment },
+      message: 'สร้างออเดอร์รอชำระเงินสำเร็จ',
+    });
   } catch (err) {
     await conn.rollback();
     next(err);
@@ -129,6 +132,7 @@ const getAdminOrders = async (req, res, next) => {
     const { status, date, table } = req.query;
     let sql = `SELECT o.*, t.table_number FROM orders o JOIN restaurant_tables t ON o.table_id = t.id WHERE 1=1`;
     const params = [];
+    sql += " AND o.payment_status = 'paid'";
 
     if (status) {
       const statuses = status.split(',').map((s) => s.trim()).filter(Boolean);
@@ -235,7 +239,7 @@ const getStats = async (req, res, next) => {
          SUM(total) as total_revenue,
          AVG(total) as avg_order
        FROM orders
-       WHERE DATE(created_at) BETWEEN ? AND ? AND status != 'cancelled'
+       WHERE DATE(created_at) BETWEEN ? AND ? AND status != 'cancelled' AND payment_status = 'paid'
        GROUP BY DATE(created_at)
        ORDER BY date ASC`,
       [start, end]
@@ -246,7 +250,7 @@ const getStats = async (req, res, next) => {
        FROM order_items oi
        JOIN menu_items m ON oi.menu_item_id = m.id
        JOIN orders o ON oi.order_id = o.id
-       WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status != 'cancelled'
+       WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status != 'cancelled' AND o.payment_status = 'paid'
        GROUP BY m.id
        ORDER BY qty DESC
        LIMIT 10`,
