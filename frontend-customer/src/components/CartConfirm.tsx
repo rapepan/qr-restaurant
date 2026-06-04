@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { X, Loader2, Upload, CheckCircle2 } from 'lucide-react';
+import { X, Loader2, Upload, CheckCircle2, Download } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { submitOrder, submitPaymentSlip } from '@/lib/api';
 
@@ -78,6 +78,14 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
     }
   };
 
+  const downloadPaymentQr = () => {
+    if (!pendingOrder?.payment?.qr_data_url) return;
+    const link = document.createElement('a');
+    link.href = pendingOrder.payment.qr_data_url;
+    link.download = `promptpay-${pendingOrder.order_number}.png`;
+    link.click();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={resetAndClose} />
@@ -152,6 +160,16 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
                 )}
                 <p className="text-xs text-gray-500 font-mono">{pendingOrder.order_number}</p>
                 <p className="text-xl font-bold text-brand-700">฿{Number(pendingOrder.total).toFixed(2)}</p>
+                {pendingOrder.payment?.qr_data_url && (
+                  <button
+                    type="button"
+                    onClick={downloadPaymentQr}
+                    className="mx-auto flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-brand-700 border border-brand-100 active:scale-[0.98]"
+                  >
+                    <Download className="w-4 h-4" />
+                    บันทึก QR Code
+                  </button>
+                )}
               </div>
 
               <label className="block rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 p-4 text-center cursor-pointer">
