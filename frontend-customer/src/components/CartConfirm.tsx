@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Loader2, Upload, CheckCircle2 } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { submitOrder, submitPaymentSlip } from '@/lib/api';
@@ -13,26 +13,17 @@ interface Props {
 }
 
 export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: Props) {
-  const { items, tableId, getTotal, updateNote, clearCart } = useCartStore();
+  const { items, tableId, getTotal, clearCart } = useCartStore();
   const total = getTotal();
   const [pendingOrder, setPendingOrder] = useState<any>(null);
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [creating, setCreating] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState('');
-
-  if (!open) return null;
-
-  const resetAndClose = () => {
-    if (creating || verifying) return;
-    setPendingOrder(null);
-    setSlipFile(null);
-    setError('');
-    onClose();
-  };
+  const autoCreateStarted = useRef(false);
 
   const handleCreateOrder = async () => {
-    if (!tableId) return;
+    if (!tableId || creating) return;
 
     setCreating(true);
     setError('');
@@ -47,10 +38,28 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
       });
       setPendingOrder(order);
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'สร้างออเดอร์ไม่สำเร็จ กรุณาลองใหม่');
+      autoCreateStarted.current = false;
+      setError(err?.response?.data?.message || 'สร้าง QR ชำระเงินไม่สำเร็จ กรุณาลองใหม่');
     } finally {
       setCreating(false);
     }
+  };
+
+  useEffect(() => {
+    if (!open || pendingOrder || autoCreateStarted.current) return;
+    autoCreateStarted.current = true;
+    handleCreateOrder();
+  }, [open, pendingOrder]);
+
+  if (!open) return null;
+
+  const resetAndClose = () => {
+    if (creating || verifying) return;
+    autoCreateStarted.current = false;
+    setPendingOrder(null);
+    setSlipFile(null);
+    setError('');
+    onClose();
   };
 
   const handleVerifySlip = async () => {
@@ -79,7 +88,7 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
 
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <h2 className="font-bold text-gray-900 text-lg">
-            {pendingOrder ? 'ชำระเงินและอัปโหลดสลิป' : 'ยืนยันการสั่งอาหาร'}
+            {pendingOrder ? 'ชำระเงินและอัปโหลดสลิป' : 'กำลังสร้าง QR ชำระเงิน'}
           </h2>
           <button onClick={resetAndClose} disabled={creating || verifying} className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50">
             <X className="w-5 h-5 text-gray-500" />
@@ -87,35 +96,25 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          <div className="bg-brand-50 rounded-2xl p-3 flex items-center gap-3">
-            <div>
-              <p className="text-xs text-brand-600 font-medium">โต๊ะของคุณ</p>
-              <p className="font-bold text-gray-900">โต๊ะ {tableNumber}</p>
-            </div>
+          <div className="bg-brand-50 rounded-2xl p-3">
+            <p className="text-xs text-brand-600 font-medium">โต๊ะของคุณ</p>
+            <p className="font-bold text-gray-900">โต๊ะ {tableNumber}</p>
           </div>
 
           {!pendingOrder ? (
             <>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <h3 className="text-sm font-semibold text-gray-700">รายการอาหาร</h3>
                 {items.map((item) => (
-                  <div key={item.id} className="py-3 border-b border-gray-100 last:border-0 space-y-2">
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-800">{item.name}</p>
-                        <p className="text-xs text-gray-400">x{item.quantity}</p>
-                      </div>
-                      <p className="text-sm font-semibold text-gray-800 flex-shrink-0">
-                        ฿{(Number(item.price) * item.quantity).toFixed(0)}
-                      </p>
+                  <div key={item.id} className="flex justify-between items-start gap-3 py-2 border-b border-gray-100 last:border-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800">{item.name}</p>
+                      <p className="text-xs text-gray-400">x{item.quantity}</p>
+                      {item.note && <p className="text-xs text-amber-600 mt-1">หมายเหตุ: {item.note}</p>}
                     </div>
-                    <textarea
-                      value={item.note || ''}
-                      onChange={(e) => updateNote(item.id, e.target.value)}
-                      placeholder="หมายเหตุสำหรับเมนูนี้ เช่น ไม่เผ็ด, ไม่ใส่ผัก..."
-                      rows={2}
-                      className="w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
-                    />
+                    <p className="text-sm font-semibold text-gray-800 flex-shrink-0">
+                      ฿{(Number(item.price) * item.quantity).toFixed(0)}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -124,15 +123,32 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
                 <span>รวมทั้งหมด</span>
                 <span className="text-brand-600">฿{total.toFixed(2)}</span>
               </div>
+
+              <div className="rounded-2xl bg-brand-50 border border-brand-100 px-4 py-4 flex items-center justify-center gap-2 text-brand-700">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <p className="text-sm font-semibold">กำลังสร้าง QR ชำระเงิน...</p>
+              </div>
+
+              {error && (
+                <button
+                  onClick={handleCreateOrder}
+                  disabled={creating}
+                  className="w-full bg-brand-600 text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {creating ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังลองใหม่...</> : 'ลองสร้าง QR อีกครั้ง'}
+                </button>
+              )}
             </>
           ) : (
             <>
               <div className="rounded-2xl border border-brand-100 bg-brand-50 p-4 text-center space-y-3">
                 <p className="text-sm font-semibold text-gray-900">สแกนจ่าย PromptPay</p>
-                {pendingOrder.payment?.qr_data_url && (
+                {pendingOrder.payment?.qr_data_url ? (
                   <div className="bg-white p-3 rounded-xl inline-block">
                     <img src={pendingOrder.payment.qr_data_url} alt="PromptPay QR" className="w-52 h-52" />
                   </div>
+                ) : (
+                  <div className="bg-white p-6 rounded-xl text-sm text-red-500">ไม่พบ QR ชำระเงิน</div>
                 )}
                 <p className="text-xs text-gray-500 font-mono">{pendingOrder.order_number}</p>
                 <p className="text-xl font-bold text-brand-700">฿{Number(pendingOrder.total).toFixed(2)}</p>
@@ -169,23 +185,13 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
         </div>
 
         <div className="px-5 pb-8 pt-3 safe-bottom">
-          {!pendingOrder ? (
-            <button
-              onClick={handleCreateOrder}
-              disabled={creating}
-              className="w-full bg-brand-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-brand-600/30"
-            >
-              {creating ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังสร้าง QR...</> : 'สร้าง QR ชำระเงิน'}
-            </button>
-          ) : (
-            <button
-              onClick={handleVerifySlip}
-              disabled={verifying || !slipFile}
-              className="w-full bg-brand-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-brand-600/30"
-            >
-              {verifying ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังตรวจสลิป...</> : 'ส่งสลิปเพื่อตรวจสอบ'}
-            </button>
-          )}
+          <button
+            onClick={handleVerifySlip}
+            disabled={!pendingOrder || verifying || !slipFile}
+            className="w-full bg-brand-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-brand-600/30"
+          >
+            {verifying ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังตรวจสลิป...</> : 'ส่งสลิปเพื่อตรวจสอบ'}
+          </button>
         </div>
       </div>
     </div>
