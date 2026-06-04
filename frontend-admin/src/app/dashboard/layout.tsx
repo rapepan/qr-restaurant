@@ -51,7 +51,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     socket.on('staff_call', (call) => {
       const msg = call.type === 'request_bill'
-        ? `💳 ขอเช็กบิล โต๊ะ ${call.table_number}`
         : `🔔 เรียกพนักงาน โต๊ะ ${call.table_number}`;
       toast(msg, { duration: 8000, icon: '⚡' });
       setNotifCount(c => c + 1);
