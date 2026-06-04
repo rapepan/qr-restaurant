@@ -86,6 +86,31 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
     link.click();
   };
 
+  const savePaymentQr = async () => {
+    if (!pendingOrder?.payment?.qr_data_url) return;
+
+    const filename = `promptpay-${pendingOrder.order_number}.png`;
+
+    try {
+      const response = await fetch(pendingOrder.payment.qr_data_url);
+      const blob = await response.blob();
+      const file = new File([blob], filename, { type: 'image/png' });
+
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'PromptPay QR Code',
+          text: `QR ชำระเงิน ${pendingOrder.order_number}`,
+        });
+        return;
+      }
+    } catch {
+      // Fall back to browser download below.
+    }
+
+    downloadPaymentQr();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={resetAndClose} />
@@ -163,7 +188,7 @@ export default function CartConfirm({ open, onClose, tableNumber, onSuccess }: P
                 {pendingOrder.payment?.qr_data_url && (
                   <button
                     type="button"
-                    onClick={downloadPaymentQr}
+                    onClick={savePaymentQr}
                     className="mx-auto flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-brand-700 border border-brand-100 active:scale-[0.98]"
                   >
                     <Download className="w-4 h-4" />
