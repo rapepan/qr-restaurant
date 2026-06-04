@@ -72,7 +72,7 @@ export const useCartStore = create<CartStore>()(
       clearCart: () => set({ items: [] }),
 
       setTable: (id, number, token) =>
-        set({ tableId: id, tableNumber: number, tableToken: token }),
+        set({ tableId: id, tableNumber: number, tableToken: token, items: [] }),
 
       getTotal: () =>
         get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
@@ -80,6 +80,13 @@ export const useCartStore = create<CartStore>()(
       getCount: () =>
         get().items.reduce((sum, i) => sum + i.quantity, 0),
     }),
-    { name: 'qr-restaurant-cart' }
+    {
+      name: 'qr-restaurant-table',
+      partialize: (state) => ({
+        tableId: state.tableId,
+        tableNumber: state.tableNumber,
+        tableToken: state.tableToken,
+      }),
+    }
   )
 );
