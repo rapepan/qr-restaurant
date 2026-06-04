@@ -211,7 +211,7 @@ export default function OrderPageContent() {
       )}
 
       <CartSheet open={cartOpen} onClose={() => setCartOpen(false)} onConfirm={() => { setCartOpen(false); setConfirmOpen(true); }} />
-      <CartConfirm open={confirmOpen} onClose={() => setConfirmOpen(false)} tableNumber={table} onSuccess={(orderNumber) => { router.push(`/order/status/${orderNumber}?table=${table}`); }} />
+      <CartConfirm open={confirmOpen} onClose={() => setConfirmOpen(false)} tableNumber={table} onSuccess={(orderNumber) => { router.push(`/order/status/${orderNumber}?table=${table}&token=${token}`); }} />
       {toast && <Toast message={toast.message} type={toast.type} />}
     </div>
   );

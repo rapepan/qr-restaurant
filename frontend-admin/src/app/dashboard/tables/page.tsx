@@ -5,18 +5,6 @@ import { Plus, QrCode, Loader2, Trash2 } from 'lucide-react';
 import { getTables, createTable, regenerateToken, deleteTable } from '@/lib/api';
 import toast from 'react-hot-toast';
 
-const STATUS_COLOR: Record<string, string> = {
-  available: 'bg-green-900/40 text-green-400',
-  occupied: 'bg-red-900/40 text-red-400',
-  reserved: 'bg-yellow-900/40 text-yellow-400',
-};
-
-const STATUS_TH: Record<string, string> = {
-  available: 'ว่าง',
-  occupied: 'มีลูกค้า',
-  reserved: 'จอง',
-};
-
 export default function TablesPage() {
   const [tables, setTables] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,14 +122,9 @@ export default function TablesPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {tables.map((table) => (
             <div key={table.id} className="bg-gray-900 rounded-2xl border border-gray-800 p-4 flex flex-col gap-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-lg font-bold text-white">โต๊ะ {table.table_number}</p>
-                  <p className="text-xs text-gray-500">{table.capacity} ที่นั่ง</p>
-                </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[table.status]}`}>
-                  {STATUS_TH[table.status]}
-                </span>
+              <div>
+                <p className="text-lg font-bold text-white">โต๊ะ {table.table_number}</p>
+                <p className="text-xs text-gray-500">{table.capacity} ที่นั่ง</p>
               </div>
               <div className="flex gap-2">
                 <button
